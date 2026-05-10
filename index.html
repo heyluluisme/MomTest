@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>中式母爱性格分析 - 黑客松路演版</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+        body { background-color: #008080; font-family: 'DotGothic16', sans-serif; overflow: hidden; }
+        .win-outset { border: 2px solid; border-color: #fff #808080 #808080 #fff; }
+        .win-inset { border: 2px solid; border-color: #808080 #fff #fff #808080; background: white; }
+        .title-bar { background: linear-gradient(90deg, #000080, #1084d0); }
+        .pixel-loading { width: 100%; height: 4px; background: #808080; position: relative; }
+        .pixel-loading-bar { height: 100%; background: #000080; animation: load 2s infinite; }
+        @keyframes load { 0% { width: 0; } 100% { width: 100%; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const resultProfiles = {
+            FruitPlate: { title: "【果盘主理人】", desc: "有些妈妈说“我爱你”，她则是直接冷藏在冰箱里递给你。切好的苹果是她的加密情书。", color: "#FF5F5F" },
+            CCTV: { title: "【人肉监控探头】", desc: "爱让你妈的神经系统变成了全天候安防。你还没开口，她已经拦截了你的不安。", color: "#4A90E2" },
+            Ranked: { title: "【排位赛教练】", desc: "她通过期待来表达爱。即使那看起来像压力，但她其实是你此生唯一的死忠粉。", color: "#F5A623" },
+            ATM: { title: "【带情绪的ATM】", desc: "她脆弱时的表现就是问你‘钱够不够花’。这是她能想到的最直接的遮风挡雨。", color: "#7ED321" },
+            NPC: { title: "【背景板NPC】", desc: "她爱得如此安静，以至于几乎成了生活的背景色。等她老了，背景色也会慢慢褪去。", color: "#9B9B9B" },
+            Logistics: { title: "【后勤部长】", desc: "她把你的生活承重扛得太稳，以至于你甚至没发现自己生活在某种巨大的负重前行中。", color: "#BD10E0" },
+            Forwarded: { title: "【养生文转播使】", desc: "转发文章是她留在你生活里的唯一方式。那些被你嫌弃的标题党，是她不敢说出的担心。", color: "#50E3C2" },
+            Fine: { title: "【“我没事”战神】", desc: "她花了太长时间保护所有人，以至于没人注意到她其实也会累。她最擅长的事情就是不麻烦你。", color: "#D0021B" },
+        };
+
+        const questions = [
+            { q: "小学下暴雨，你放学晚了，校门口你妈：", options: ["A. 穿着睡衣就跑来了", "B. 一边骂你一边把伞往你这边偏", "C. 手里还拎着吃的", "D. 表面冷静，其实打了8个电话", "E. 看到你后明显松了口气"], types: ['Logistics', 'FruitPlate', 'Logistics', 'CCTV', 'Fine'] },
+            { q: "凌晨两点你偷吃泡面，灯亮了，她：", options: ["A. “我就知道你没睡。”", "B. “给我也吃一口。”", "C. “又熬夜是吧？”", "D. 默默给你拿了个碗", "E. “别吃垃圾食品，下点饺子。”"], types: ['CCTV', 'ATM', 'Ranked', 'FruitPlate', 'Logistics'] },
+            { q: "考试那天出门前，她：", options: ["A. 假装很平静", "B. 比你还紧张", "C. 往你包里塞吃的", "D. 开始迷信行为", "E. “正常发挥就行。”"], types: ['Fine', 'Ranked', 'FruitPlate', 'CCTV', 'Logistics'] },
+            { q: "小时候发烧醒来，看到她：", options: ["A. 还坐在你床边", "B. 在量你体温", "C. 一晚上没睡", "D. 在厨房熬奇怪东西", "E. 摸你额头一边叹气"], types: ['Logistics', 'CCTV', 'Fine', 'FruitPlate', 'Fine'] },
+            { q: "第一次上大学到宿舍，第一句话：", options: ["A. “记得吃饭。”", "B. “宿舍冷不冷？”", "C. “钱不够和我说。”", "D. “到哪了怎么不发消息？”", "E. 发一长串注意事项"], types: ['Logistics', 'FruitPlate', 'ATM', 'CCTV', 'Forwarded'] },
+            { q: "你说“压力大”，她最可能：", options: ["A. 第二天寄一堆吃的", "B. 假装没听见但观察你", "C. “早点睡。”", "D. 给你转账", "E. 发《长期焦虑的危害》"], types: ['FruitPlate', 'CCTV', 'NPC', 'ATM', 'Forwarded'] },
+            { q: "车后座睡着到家了，她：", options: ["A. 把你抱回家", "B. 轻轻拍醒你", "C. 一边嫌重一边背你", "D. 给你盖衣服", "E. 故意把空调调高"], types: ['Logistics', 'NPC', 'Fine', 'FruitPlate', 'Logistics'] },
+            { q: "大吵架后晚上喝水，你发现：", options: ["A. 她还是留了饭", "B. 在假装看电视", "C. 她明显哭过", "D. 她当没事发生", "E. 水果还是切好了"], types: ['Logistics', 'NPC', 'Fine', 'Fine', 'FruitPlate'] },
+            { q: "回家打开冰箱，里面：", options: ["A. 全全是你爱吃的", "B. 她觉得你爱吃的", "C. 塞满到关不上", "D. 小时候喜欢的东西", "E. 贴着“热一下”的纸条"], types: ['FruitPlate', 'Forwarded', 'Logistics', 'NPC', 'Logistics'] },
+            { q: "回到小时候，最容易想起：", options: ["A. 厨房的灯", "B. 她叫你吃饭的声音", "C. 等你的电视声", "D. 晒过太阳的被子", "E. “到家了告诉我。”"], types: ['Logistics', 'Logistics', 'NPC', 'FruitPlate', 'CCTV'] }
+        ];
+
+        const App = () => {
+            const [step, setStep] = useState('start');
+            const [currentIdx, setCurrentIdx] = useState(0);
+            const [answers, setAnswers] = useState([]);
+            const [finalResult, setFinalResult] = useState(null);
+
+            const handleAnswer = (type) => {
+                const newAnswers = [...answers, type];
+                setAnswers(newAnswers);
+                if (currentIdx < questions.length - 1) {
+                    setCurrentIdx(currentIdx + 1);
+                } else {
+                    setStep('loading');
+                    // 计算逻辑：找出出现次数最多的类型
+                    const counts = newAnswers.reduce((acc, val) => {
+                        acc[val] = (acc[val] || 0) + 1;
+                        return acc;
+                    }, {});
+                    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                    setFinalResult(resultProfiles[sorted[0][0]]);
+
+                    setTimeout(() => setStep('result'), 3000);
+                }
+            };
+
+            const Window = ({ title, children, width = "max-w-md" }) => (
+                <div className={`win-outset bg-[#c0c0c0] ${width} w-full shadow-2xl m-4`}>
+                    <div className="title-bar h-7 flex items-center justify-between px-1 m-0.5 text-white text-[12px] font-bold">
+                        <span>{title}</span>
+                        <div className="win-outset bg-[#c0c0c0] w-4 h-4 text-black text-center leading-3 cursor-pointer">×</div>
+                    </div>
+                    <div className="p-6">{children}</div>
+                </div>
+            );
+
+            return (
+                <div className="h-screen w-screen flex items-center justify-center">
+                    {step === 'start' && (
+                        <Window title="SYSTEM_BOOT.EXE">
+                            <div className="text-center space-y-6">
+                                <div className="win-inset p-4"><h1 className="text-xl font-bold">中式母爱性格分析系统</h1></div>
+                                <p className="text-xs text-left leading-relaxed">检测到 10 组待处理的情感数据流...<br/>请如实选择以确保生成的【母爱数字指纹】准确性。</p>
+                                <button onClick={() => setStep('quiz')} className="win-outset bg-[#c0c0c0] w-full py-2 font-bold hover:bg-gray-100"> [ 启动深度扫描 ] </button>
+                            </div>
+                        </Window>
+                    )}
+
+                    {step === 'quiz' && (
+                        <Window title={`SCANNING_MEMORY: ${currentIdx + 1}/10`}>
+                            <div className="win-inset p-4 mb-4 text-sm h-16 flex items-center italic">{questions[currentIdx].q}</div>
+                            <div className="grid gap-2">
+                                {questions[currentIdx].options.map((opt, i) => (
+                                    <button key={i} onClick={() => handleAnswer(questions[currentIdx].types[i])} className="win-outset bg-[#c0c0c0] p-2 text-left text-xs hover:bg-[#000080] hover:text-white"> {opt} </button>
+                                ))}
+                            </div>
+                        </Window>
+                    )}
+
+                    {step === 'loading' && (
+                        <Window title="GENERATING_VISUALS..." width="max-w-xs">
+                            <div className="text-center space-y-4">
+                                <p className="text-xs animate-pulse">正在利用 AI 构建性格画像...</p>
+                                <div className="pixel-loading"><div className="pixel-loading-bar"></div></div>
+                                <div className="text-[10px] font-mono text-gray-600 uppercase">Processing: {Math.random().toString(36).substr(2, 9)}</div>
+                            </div>
+                        </Window>
+                    )}
+
+                    {step === 'result' && finalResult && (
+                        <Window title="FINAL_REPORT_2026" width="max-w-xl">
+                            <div className="flex flex-col md:flex-row gap-6">
+                                <div className="w-full md:w-1/3 space-y-2">
+                                    <div className="win-inset aspect-square bg-black flex items-center justify-center text-white p-4 text-center">
+                                        <div style={{color: finalResult.color}} className="text-4xl font-bold animate-pulse">TYPE<br/>{finalResult.title.replace(/[【】]/g, '')}</div>
+                                    </div>
+                                    <div className="win-inset p-2 text-[9px] font-mono leading-tight">
+                                        UID: {Math.random().toString(36).substr(2, 8).toUpperCase()}<br/>
+                                        MATCH: {(Math.random() * 20 + 80).toFixed(2)}%<br/>
+                                        TIME: {new Date().toLocaleDateString()}
+                                    </div>
+                                </div>
+                                <div className="flex-1 space-y-4">
+                                    <div className="win-inset p-4 bg-white min-h-[150px]">
+                                        <h2 className="text-lg font-bold border-b-2 border-black pb-1 mb-2">{finalResult.title}</h2>
+                                        <p className="text-sm leading-relaxed text-gray-700">{finalResult.desc}</p>
+                                    </div>
+                                    <button onClick={() => location.reload()} className="win-outset bg-[#c0c0c0] w-full py-1 text-xs font-bold"> [ REBOOT SYSTEM ] </button>
+                                </div>
+                            </div>
+                        </Window>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
