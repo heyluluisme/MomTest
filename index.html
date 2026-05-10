@@ -1,187 +1,364 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中式母爱性格分析 - Win95 Edition</title>
+import React, { useState, useEffect } from 'react';
+import { Mail, Volume2, X, Minus, HelpCircle, Monitor, Heart, Coffee, AlertTriangle, Loader2 } from 'lucide-react';
+
+const apiKey = "";
+
+// --- 像素字体样式注入 ---
+const StyleTag = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+
+    :root {
+      --win-gray: #c0c0c0;
+      --win-blue: #000080;
+      --win-border-light: #ffffff;
+      --win-border-dark: #808080;
+    }
+
+    body {
+      background-color: #008080; /* 经典Win95绿 */
+      font-family: 'DotGothic16', 'ZCOOL KuaiLe', sans-serif;
+      cursor: url('https://cur.cursors-4u.net/games/gam-4/gam382.cur'), auto;
+      overflow-x: hidden;
+    }
+
+    .win-outset {
+      border: 2px solid;
+      border-color: var(--win-border-light) var(--win-border-dark) var(--win-border-dark) var(--win-border-light);
+    }
+
+    .win-inset {
+      border: 2px solid;
+      border-color: var(--win-border-dark) var(--win-border-light) var(--win-border-light) var(--win-border-dark);
+      background: white;
+    }
+
+    .title-bar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+    }
+
+    .pixel-text {
+      image-rendering: pixelated;
+    }
+
+    @keyframes flicker {
+      0% { opacity: 0.9; }
+      50% { opacity: 1; }
+      100% { opacity: 0.9; }
+    }
+    .crt-effect {
+      animation: flicker 0.15s infinite;
+      pointer-events: none;
+    }
+  `}</style>
+);
+
+const App = () => {
+  const [step, setStep] = useState('start'); // start, quiz, loading, result
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [answers, setAnswers] = useState([]);
+  const [showError, setShowError] = useState(false);
+  const [generatedImg, setGeneratedImg] = useState(null);
+  const [isImgLoading, setIsImgLoading] = useState(false);
+
+  // --- 题目数据 ---
+  const questions = [
+    { q: "Q1: 小学下暴雨，你放学晚了，校门口你妈：", options: ["A. 穿着睡衣就跑来了", "B. 一边骂你一边把伞往你这边偏", "C. 手里还拎着吃的", "D. 表面冷静，其实打了8个电话", "E. 看到你后明显松了口气"], types: ['Logistics', 'FruitPlate', 'Logistics', 'CCTV', 'Fine'] },
+    { q: "Q2: 凌晨两点你偷吃泡面，灯亮了，她：", options: ["A. “我就知道你没睡。”", "B. “给我也吃一口。”", "C. “又熬夜是吧？”", "D. 默默给你拿了个碗", "E. “别吃垃圾食品，下点饺子。”"], types: ['CCTV', 'ATM', 'Ranked', 'FruitPlate', 'Logistics'] },
+    { q: "Q3: 考试那天出门前，她：", options: ["A. 假装很平静", "B. 比你还紧张", "C. 往你包里塞吃的", "D. 开始迷信行为", "E. “正常发挥就行。”"], types: ['Fine', 'Ranked', 'FruitPlate', 'CCTV', 'Logistics'] },
+    { q: "Q4: 小时候发烧醒来，看到她：", options: ["A. 还坐在你床边", "B. 在量你体温", "C. 一晚上没睡", "D. 在厨房熬奇怪东西", "E. 摸你额头一边叹气"], types: ['Logistics', 'CCTV', 'Fine', 'FruitPlate', 'Fine'] },
+    { q: "Q5: 第一次上大学到宿舍，第一句话：", options: ["A. “记得吃饭。”", "B. “宿舍冷不冷？”", "C. “钱不够和我说。”", "D. “到哪了怎么不发消息？”", "E. 发一长串注意事项"], types: ['Logistics', 'FruitPlate', 'ATM', 'CCTV', 'Forwarded'] },
+    { q: "Q6: 你说“压力大”，她最可能：", options: ["A. 第二天寄一堆吃的", "B. 假装没听见但观察你", "C. “早点睡。”", "D. 给你转账", "E. 发《长期焦虑的危害》"], types: ['FruitPlate', 'CCTV', 'NPC', 'ATM', 'Forwarded'] },
+    { q: "Q7: 车后座睡着到家了，她：", options: ["A. 把你抱回家", "B. 轻轻拍醒你", "C. 一边嫌重一边背你", "D. 给你盖衣服", "E. 故意把空调调高"], types: ['Logistics', 'NPC', 'Fine', 'FruitPlate', 'Logistics'] },
+    { q: "Q8: 大吵架后晚上喝水，你发现：", options: ["A. 她还是留了饭", "B. 在假装看电视", "C. 她明显哭过", "D. 她当没事发生", "E. 水果还是切好了"], types: ['Logistics', 'NPC', 'Fine', 'Fine', 'FruitPlate'] },
+    { q: "Q9: 回家打开冰箱，里面：", options: ["A. 全全是你爱吃的", "B. 她觉得你爱吃的", "C. 塞满到关不上", "D. 小时候喜欢的东西", "E. 贴着“热一下”的纸条"], types: ['FruitPlate', 'Forwarded', 'Logistics', 'NPC', 'Logistics'] },
+    { q: "Q10: 回到小时候，最容易想起：", options: ["A. 厨房的灯", "B. 她叫你吃饭的声音", "C. 等你的电视声", "D. 晒过太阳的被子", "E. “到家了告诉我。”"], types: ['Logistics', 'Logistics', 'NPC', 'FruitPlate', 'CCTV'] }
+  ];
+
+  const resultProfiles = {
+    FruitPlate: { 
+      title: "【果盘主理人】", 
+      desc: "有些妈妈说“我爱你”，她则是直接冷藏在冰箱里递给你。切好的苹果是她的加密情书。",
+      prompt: "Retro 95 computer style pixel art of a heart-shaped glowing apple plate, synthwave colors, lo-fi aesthetic, dithering effect"
+    },
+    CCTV: { 
+      title: "【人肉监控探头】", 
+      desc: "爱让你妈的神经系统变成了全天候安防。你还没开口，她已经拦截了你的不安。",
+      prompt: "Pixel art of many floating eyes inside old computer windows, surveillance aesthetic, retro anime style, glitch art, dark teal background"
+    },
+    Ranked: { 
+      title: "【排位赛教练】", 
+      desc: "她通过期待来表达爱。即使那看起来像压力，但她其实是你此生唯一的死忠粉。",
+      prompt: "8-bit style trophy with a fierce maternal energy, video game UI elements, ranked up animation frame, retro aesthetic"
+    },
+    ATM: { 
+      title: "【带情绪的ATM】", 
+      desc: "她脆弱时的表现就是问你‘钱够不够花’。这是她能想到的最直接的遮风挡雨。",
+      prompt: "Vintage ATM machine sprouting neon red hearts and digital currency, 90s tech aesthetic, pixelated vaporwave style"
+    },
+    NPC: { 
+      title: "【背景板NPC】", 
+      desc: "她爱得如此安静，以至于几乎成了生活的背景色。等她老了，背景色也会慢慢褪去。",
+      prompt: "Pixel art of a soft cozy living room with a ghost-like maternal shadow sitting peacefully, lo-fi nostalgic vibes, muted colors"
+    },
+    Logistics: { 
+      title: "【后勤部长】", 
+      desc: "她把你的生活承重扛得太稳，以至于你甚至没发现自己生活在某种巨大的负重前行中。",
+      prompt: "Retro pixel art of a giant backpack filled with domestic items, iron, lunchboxes, umbrellas, floating in space, surreal 90s aesthetic"
+    },
+    Forwarded: { 
+      title: "【养生文转播使】", 
+      desc: "转发文章是她留在你生活里的唯一方式。那些被嫌弃的标题党，是她不敢说出的担心。",
+      prompt: "A cascade of pixelated digital article links flying towards a screen, neon text, chaotic 90s internet aesthetic, vibrant glitch"
+    },
+    Fine: { 
+      title: "【“我没事”战神】", 
+      desc: "她花了太长时间保护所有人，以至于没人注意到她其实也会累。她最擅长的事情就是不麻烦你。",
+      prompt: "Pixel art of a glowing knight made of kitchen utensils and soft fabric, tired but standing tall, nostalgic anime style, soft blue light"
+    },
+  };
+
+  const getResultKey = () => {
+    const counts = {};
+    answers.forEach(x => counts[x] = (counts[x] || 0) + 1);
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return sorted[0][0];
+  };
+
+  const generateImage = async () => {
+    setIsImgLoading(true);
+    const resultKey = getResultKey();
+    const prompt = resultProfiles[resultKey].prompt;
+
+    try {
+      let retryCount = 0;
+      const maxRetries = 5;
+      const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+      const callApi = async () => {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instances: [{ prompt: prompt }],
+            parameters: { sampleCount: 1 }
+          })
+        });
+        if (!response.ok) throw new Error('Generation failed');
+        return await response.json();
+      };
+
+      let data;
+      while (retryCount < maxRetries) {
+        try {
+          data = await callApi();
+          break;
+        } catch (e) {
+          retryCount++;
+          if (retryCount === maxRetries) throw e;
+          await delay(Math.pow(2, retryCount) * 1000);
+        }
+      }
+
+      if (data?.predictions?.[0]?.bytesBase64Encoded) {
+        setGeneratedImg(`data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`);
+      }
+    } catch (err) {
+      console.error(err);
+      // Fallback or error state
+    } finally {
+      setIsImgLoading(false);
+    }
+  };
+
+  const handleAnswer = (optionIdx) => {
+    const type = questions[currentIdx].types[optionIdx];
+    const newAnswers = [...answers, type];
+    setAnswers(newAnswers);
     
-    <!-- 引入 React 核心库 -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- 引入 Babel 用于解析 JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- 引入 Tailwind CSS 用于样式 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Lucide 图标 -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/lucide-react@latest"></script>
+    if (currentIdx < questions.length - 1) {
+      setCurrentIdx(currentIdx + 1);
+    } else {
+      setStep('loading');
+      setTimeout(() => {
+        setStep('result');
+        // Trigger image generation when result step is reached
+      }, 2000);
+    }
+  };
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+  useEffect(() => {
+    if (step === 'result') {
+      generateImage();
+    }
+  }, [step]);
 
-        :root {
-            --win-gray: #c0c0c0;
-            --win-blue: #000080;
-            --win-border-light: #ffffff;
-            --win-border-dark: #808080;
-        }
+  const WindowFrame = ({ title, children, width = "max-w-md", icon: Icon = Monitor }) => (
+    <div className={`win-outset bg-[#c0c0c0] ${width} w-full shadow-xl mb-8 relative`}>
+      <div className="title-bar h-7 flex items-center justify-between px-1 m-1">
+        <div className="flex items-center gap-1 text-white text-xs font-bold px-1">
+          <Icon size={14} />
+          <span className="mt-0.5">{title}</span>
+        </div>
+        <div className="flex gap-1">
+          <button className="win-outset bg-[#c0c0c0] w-4 h-4 flex items-center justify-center"><Minus size={10} /></button>
+          <button className="win-outset bg-[#c0c0c0] w-4 h-4 flex items-center justify-center"><HelpCircle size={10} /></button>
+          <button className="win-outset bg-[#c0c0c0] w-4 h-4 flex items-center justify-center" onClick={() => setShowError(true)}><X size={10} /></button>
+        </div>
+      </div>
+      <div className="p-4">
+        {children}
+      </div>
+    </div>
+  );
 
-        body {
-            background-color: #008080; /* Win95 Teal */
-            font-family: 'DotGothic16', sans-serif;
-            margin: 0;
-            overflow: hidden;
-        }
+  return (
+    <div className="min-h-screen p-4 md:p-8 flex flex-col items-center justify-center relative">
+      <StyleTag />
+      
+      {/* 桌面背景小元素 */}
+      <div className="fixed top-10 left-10 flex flex-col items-center gap-2 opacity-80 select-none hidden md:flex">
+        <div className="w-12 h-12 bg-white/20 win-outset flex items-center justify-center text-white">
+           <Mail size={32} />
+        </div>
+        <span className="text-white text-[10px] bg-black/20 px-1">我的文档.exe</span>
+      </div>
 
-        .win-outset {
-            border: 2px solid;
-            border-color: var(--win-border-light) var(--win-border-dark) var(--win-border-dark) var(--win-border-light);
-        }
+      {step === 'start' && (
+        <WindowFrame title="System Initialization" width="max-w-sm">
+          <div className="text-center space-y-4">
+            <div className="win-inset p-4 bg-white mb-4">
+              <h1 className="text-xl font-bold mb-2 text-black">中式母爱性格分析</h1>
+              <p className="text-xs text-gray-600 italic">Version 2.0.1 - AI Visual Edition</p>
+            </div>
+            <p className="text-sm leading-relaxed text-left">
+              警告：该系统即将扫描你的童年记忆并生成专属视觉。检测到多项“妈味”数据流，是否继续？
+            </p>
+            <button 
+              onClick={() => setStep('quiz')}
+              className="win-outset bg-[#c0c0c0] px-6 py-2 active:win-inset hover:bg-gray-100 transition-colors w-full font-bold"
+            >
+              [ RUN: TEST_START.EXE ]
+            </button>
+          </div>
+        </WindowFrame>
+      )}
 
-        .win-inset {
-            border: 2px solid;
-            border-color: var(--win-border-dark) var(--win-border-light) var(--win-border-light) var(--win-border-dark);
-            background: white;
-        }
+      {step === 'quiz' && (
+        <WindowFrame title={`Question ${currentIdx + 1}/10 - System.Quiz`} icon={HelpCircle}>
+          <div className="space-y-4">
+            <div className="win-inset bg-white p-3 text-sm min-h-[60px] flex items-center italic">
+              {questions[currentIdx].q}
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {questions[currentIdx].options.map((opt, i) => (
+                <button 
+                  key={i}
+                  onClick={() => handleAnswer(i)}
+                  className="win-outset bg-[#c0c0c0] p-2 text-left text-xs hover:bg-[#000080] hover:text-white group flex items-center gap-2"
+                >
+                  <span className="w-4 h-4 win-inset bg-white group-hover:bg-blue-200 shrink-0"></span>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </WindowFrame>
+      )}
 
-        .title-bar {
-            background: linear-gradient(90deg, #000080, #1084d0);
-        }
+      {step === 'loading' && (
+        <WindowFrame title="Calculating Trauma..." width="max-w-xs">
+          <div className="text-center space-y-4">
+            <p className="text-xs">正在分析水果盘的新鲜度...</p>
+            <div className="win-inset h-6 w-full relative bg-gray-200 overflow-hidden">
+               <div className="h-full bg-[#000080] animate-[pulse_1s_infinite]" style={{width: '70%'}}></div>
+            </div>
+            <div className="flex justify-center italic text-[10px] animate-pulse">
+               MOM_LOVE_PROCESSOR: OK
+            </div>
+          </div>
+        </WindowFrame>
+      )}
 
-        @keyframes flicker {
-            0% { opacity: 0.97; }
-            50% { opacity: 1; }
-            100% { opacity: 0.97; }
-        }
-        .crt-effect {
-            animation: flicker 0.15s infinite;
-            pointer-events: none;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-            background-size: 100% 2px, 3px 100%;
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        const { Mail, Volume2, X, Minus, HelpCircle, Monitor, Heart, AlertTriangle, Loader2 } = lucide;
-
-        // --- 结果数据 ---
-        const resultProfiles = {
-            FruitPlate: { title: "【果盘主理人】", desc: "有些妈妈说“我爱你”，她则是直接冷藏在冰箱里递给你。切好的苹果是她的加密情书。" },
-            CCTV: { title: "【人肉监控探头】", desc: "爱让你妈的神经系统变成了全天候安防。你还没开口，她已经拦截了你的不安。" },
-            Ranked: { title: "【排位赛教练】", desc: "她通过期待来表达爱。即使那看起来像压力，但她其实是你此生唯一的死忠粉。" },
-            ATM: { title: "【带情绪的ATM】", desc: "她脆弱时的表现就是问你‘钱够不够花’。这是她能想到的最直接的遮风挡雨。" },
-            NPC: { title: "【背景板NPC】", desc: "她爱得如此安静，以至于几乎成了生活的背景色。等她老了，背景色也会慢慢褪去。" },
-            Logistics: { title: "【后勤部长】", desc: "她把你的生活承重扛得太稳，以至于你甚至没发现自己生活在某种巨大的负重前行中。" },
-            Forwarded: { title: "【养生文转播使】", desc: "转发文章是她留在你生活里的唯一方式。那些被嫌弃的标题党，是她不敢说出的担心。" },
-            Fine: { title: "【“我没事”战神】", desc: "她花了太长时间保护所有人，以至于没人注意到她其实也会累。她最擅长的事情就是不麻烦你。" },
-        };
-
-        const App = () => {
-            const [step, setStep] = useState('start');
-            const [currentIdx, setCurrentIdx] = useState(0);
-            const [answers, setAnswers] = useState([]);
-
-            const questions = [
-                { q: "Q1: 小学下暴雨，你放学晚了，校门口你妈：", options: ["A. 穿着睡衣就跑来了", "B. 一边骂你一边把伞往你这边偏", "C. 手里还拎着吃的", "D. 表面冷静，其实打了8个电话", "E. 看到你后明显松了口气"], types: ['Logistics', 'FruitPlate', 'Logistics', 'CCTV', 'Fine'] },
-                { q: "Q2: 凌晨两点你偷吃泡面，灯亮了，她：", options: ["A. “我就知道你没睡。”", "B. “给我也吃一口。”", "C. “又熬夜是吧？”", "D. 默默给你拿了个碗", "E. “别吃垃圾食品，下点饺子。”"], types: ['CCTV', 'ATM', 'Ranked', 'FruitPlate', 'Logistics'] },
-                // ... 篇幅原因，此处省略部分题目，逻辑同前 ...
-                { q: "Q10: 回到小时候，最容易想起：", options: ["A. 厨房的灯", "B. 她叫你吃饭的声音", "C. 等你的电视声", "D. 晒过太阳的被子", "E. “到家了告诉我。”"], types: ['Logistics', 'Logistics', 'NPC', 'FruitPlate', 'CCTV'] }
-            ];
-
-            const handleAnswer = (idx) => {
-                const newAnswers = [...answers, questions[currentIdx].types[idx]];
-                setAnswers(newAnswers);
-                if (currentIdx < questions.length - 1) {
-                    setCurrentIdx(currentIdx + 1);
-                } else {
-                    setStep('loading');
-                    setTimeout(() => setStep('result'), 2000);
-                }
-            };
-
-            const getResult = () => {
-                const counts = {};
-                answers.forEach(x => counts[x] = (counts[x] || 0) + 1);
-                const resKey = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-                return resultProfiles[resKey] || resultProfiles.FruitPlate;
-            };
-
-            const Window = ({ title, children, width = "max-w-md" }) => (
-                <div className={`win-outset bg-[#c0c0c0] ${width} w-full m-4 shadow-2xl`}>
-                    <div className="title-bar h-7 flex items-center justify-between px-1 m-0.5">
-                        <div className="flex items-center gap-1 text-white text-[11px] font-bold">
-                            <div className="w-4 h-4 bg-gray-400 win-outset"></div>
-                            <span>{title}</span>
-                        </div>
-                        <div className="flex gap-0.5">
-                            <div className="win-outset bg-[#c0c0c0] w-4 h-4 text-[10px] flex items-center justify-center font-bold">_</div>
-                            <div className="win-outset bg-[#c0c0c0] w-4 h-4 text-[10px] flex items-center justify-center font-bold">X</div>
-                        </div>
-                    </div>
-                    <div className="p-4">{children}</div>
+      {step === 'result' && (
+        <WindowFrame title="Personality Report - 2026" icon={AlertTriangle} width="max-w-2xl">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-full md:w-2/5 space-y-2">
+              <div className="win-inset bg-black aspect-square flex flex-col items-center justify-center overflow-hidden relative group">
+                {isImgLoading ? (
+                  <div className="flex flex-col items-center gap-2 text-white p-4">
+                    <Loader2 size={32} className="animate-spin text-blue-400" />
+                    <p className="text-[10px] font-mono animate-pulse">IMAGE_GENERATING...</p>
+                  </div>
+                ) : generatedImg ? (
+                  <img src={generatedImg} alt="Meme Visualization" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-gray-500 text-[10px] p-8 text-center font-mono">
+                    ERROR: IMG_SERVER_BUSY
+                    <br/>FALLBACK_TO_DREAMING
+                  </div>
+                )}
+                <div className="absolute top-2 left-2 bg-black/60 text-[8px] text-green-400 px-1 font-mono">
+                  TYPE: {getResultKey().toUpperCase()}
                 </div>
-            );
-
-            return (
-                <div className="h-screen w-full flex items-center justify-center relative overflow-hidden">
-                    <div className="crt-effect absolute inset-0 z-50"></div>
-                    
-                    {step === 'start' && (
-                        <Window title="System.Init">
-                            <div className="text-center">
-                                <div className="win-inset p-4 mb-4">
-                                    <h1 className="text-xl font-bold italic">MOM_LOVE_SCANNER.EXE</h1>
-                                    <p className="text-[10px] mt-2">All-Women Hackathon Special Edition</p>
-                                </div>
-                                <button onClick={() => setStep('quiz')} className="win-outset bg-[#c0c0c0] px-8 py-2 active:win-inset font-bold">开始扫描记忆</button>
-                            </div>
-                        </Window>
-                    )}
-
-                    {step === 'quiz' && (
-                        <Window title={`Scanning... ${currentIdx + 1}/10`}>
-                            <div className="win-inset p-3 bg-white mb-4 text-sm">{questions[currentIdx].q}</div>
-                            <div className="flex flex-col gap-2">
-                                {questions[currentIdx].options.map((opt, i) => (
-                                    <button key={i} onClick={() => handleAnswer(i)} className="win-outset bg-[#c0c0c0] p-2 text-left text-xs hover:bg-[#000080] hover:text-white">
-                                        {opt}
-                                    </button>
-                                ))}
-                            </div>
-                        </Window>
-                    )}
-
-                    {step === 'result' && (
-                        <Window title="Final Analysis Result" width="max-w-lg">
-                            <div className="win-inset p-4 bg-white mb-4">
-                                <h2 className="text-lg font-bold text-blue-900 mb-2">{getResult().title}</h2>
-                                <p className="text-sm leading-relaxed">{getResult().desc}</p>
-                            </div>
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-red-600 font-bold">● 情感数据已同步至 2026-05-10</span>
-                                <button onClick={() => location.reload()} className="win-outset px-4 py-1">重新扫描</button>
-                            </div>
-                        </Window>
-                    )}
-
-                    {/* 底部任务栏 */}
-                    <div className="fixed bottom-0 left-0 right-0 h-10 bg-[#c0c0c0] win-outset flex items-center px-1 z-40">
-                        <div className="win-outset bg-[#c0c0c0] px-2 py-0.5 h-7 flex items-center gap-1 font-bold italic">
-                            <span className="text-xs">Start</span>
-                        </div>
-                        <div className="flex-1"></div>
-                        <div className="win-inset px-2 py-0.5 text-[10px] bg-[#c0c0c0]">11:24 PM</div>
-                    </div>
+              </div>
+              <div className="win-inset bg-gray-100 p-2 text-[9px] break-all font-mono leading-tight">
+                USER_ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}
+                <br/>TIMESTAMP: {new Date().toISOString()}
+                <br/>VISUAL: AI_PIXEL_GEN_4.0
+              </div>
+            </div>
+            <div className="flex-1 space-y-4">
+              <div className="win-inset p-4 bg-white shadow-inner">
+                <h2 className="text-xl font-bold text-blue-900 mb-3 border-b-2 border-blue-900 pb-1">
+                  {resultProfiles[getResultKey()].title}
+                </h2>
+                <p className="text-sm leading-relaxed mb-4 text-gray-800">
+                  {resultProfiles[getResultKey()].desc}
+                </p>
+                <div className="bg-yellow-50 border border-yellow-200 p-2 text-[11px] italic text-yellow-800">
+                  "系统建议：左侧图像为根据你的记忆特征实时生成的【母爱数字指纹】。请右键保存，作为你的电子避风港。"
                 </div>
-            );
-        };
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button className="win-outset bg-[#c0c0c0] py-1 text-xs font-bold active:win-inset" onClick={() => {setGeneratedImg(null); setStep('start');}}>
+                  [ REBOOT ]
+                </button>
+                <button className="win-outset bg-[#c0c0c0] py-1 text-xs font-bold active:win-inset" onClick={() => window.print()}>
+                  [ EXPORT_PDF ]
+                </button>
+              </div>
+              <div className="flex justify-between items-end opacity-60">
+                 <div className="text-[10px] text-red-700 font-bold underline">WARNING: NOSTALGIA_OVERFLOW</div>
+                 <Heart className="text-red-500 fill-red-500 animate-bounce" size={16} />
+              </div>
+            </div>
+          </div>
+        </WindowFrame>
+      )}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+      {/* 底部任务栏 */}
+      <div className="fixed bottom-0 left-0 right-0 h-10 bg-[#c0c0c0] win-outset flex items-center px-1 z-40 border-t-2">
+        <button className="win-outset bg-[#c0c0c0] px-2 py-0.5 h-8 flex items-center gap-1 font-bold italic shadow-inner active:win-inset">
+          <Monitor size={16}/>
+          <span className="text-xs">Start</span>
+        </button>
+        <div className="mx-2 h-6 w-[1px] bg-gray-400"></div>
+        <div className="flex-1 flex gap-1 h-8">
+           <div className="win-inset bg-white/50 px-3 flex items-center text-[10px] font-bold">
+             {step === 'quiz' ? `MOM_ANALYZER_Q${currentIdx+1}.exe` : 'SYSTEM_IDLE'}
+           </div>
+        </div>
+        <div className="win-inset px-2 py-0.5 text-xs flex items-center gap-2 bg-[#c0c0c0]">
+           <Volume2 size={12} />
+           <span className="font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        </div>
+      </div>
+
+      <div className="crt-effect fixed inset-0 z-50 pointer-events-none opacity-5"></div>
+    </div>
+  );
+};
+
+export default App;
